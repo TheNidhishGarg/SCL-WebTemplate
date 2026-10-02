@@ -1,0 +1,32 @@
+{
+  "name": "sar-website-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reference website -> Save All Resources capture -> reusable website template",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build:extension": "node extension/build.mjs",
+    "start": "node app/server.mjs",
+    "capture": "node app/cli.mjs",
+    "fixture": "node test/fixtures/fixture-server.mjs",
+    "test": "node --test --test-concurrency=1 \"test/unit/*.test.mjs\"",
+    "test:e2e": "node --test --test-concurrency=1 --test-timeout=900000 \"test/e2e/*.test.mjs\"",
+    "test:all": "npm run build:extension && npm test && npm run test:e2e"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "fflate": "^0.8.3",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
+    "postcss": "^8.5.28",
+    "postcss-value-parser": "^4.2.0",
+    "puppeteer": "^25.12.0"
+  },
+  "devDependencies": {
+    "@zip.js/zip.js": "^2.22.0",
+    "esbuild": "^0.28.2",
+    "prettier": "2.8.8"
+  }
+}

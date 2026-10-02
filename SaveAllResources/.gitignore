@@ -1,0 +1,9 @@
+node_modules/
+data/
+extension/dist/
+exports/
+scratch/
+.cache/
+*.log
+extension/extension.config.json
+app/config.json

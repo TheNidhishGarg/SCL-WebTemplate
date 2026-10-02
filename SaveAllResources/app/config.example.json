@@ -1,0 +1,17 @@
+{
+  "host": "localhost",
+  "port": 4100,
+  "publicOrigin": "http://localhost:4100",
+  "dataDir": "data",
+  "extensionId": null,
+  "uploadTokenTtlMs": 7200000,
+  "launchCodeTtlMs": 600000,
+  "maxUploadBytes": 600000000,
+  "verification": {
+    "enabled": true,
+    "headless": true,
+    "pageTimeoutMs": 30000,
+    "maxPages": 50,
+    "maxMismatchRatio": 0.15
+  }
+}

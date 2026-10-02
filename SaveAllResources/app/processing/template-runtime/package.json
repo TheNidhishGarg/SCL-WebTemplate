@@ -1,0 +1,12 @@
+{
+  "name": "website-template",
+  "private": true,
+  "type": "module",
+  "description": "Editable website template generated from a Save All Resources capture",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "node build.mjs",
+    "preview": "node build.mjs && node serve.mjs --port 8080",
+    "dev": "node build.mjs && node serve.mjs --port 8080 --watch"
+  }
+}

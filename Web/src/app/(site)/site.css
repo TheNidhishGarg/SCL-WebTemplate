@@ -1,0 +1,99 @@
+/*
+ * WF-05 page styles. Every value comes from a brand variable (WF-04) with a
+ * neutral fallback, so the same components render any brand. No breakpoints
+ * are hard-coded: grids reflow with auto-fit, which keeps pages working from
+ * phone to desktop whatever the brand's breakpoints are.
+ */
+.scl-site {
+  min-height: 100dvh;
+  background: var(--scl-color-background, #fff);
+  color: var(--scl-color-text, #111);
+  font-family: var(--scl-font-body, system-ui, sans-serif);
+  font-size: var(--scl-font-size-base, 1rem);
+  line-height: var(--scl-line-height-body, 1.6);
+  letter-spacing: var(--scl-letter-spacing-body, 0);
+}
+.scl-site *, .scl-site *::before, .scl-site *::after { box-sizing: border-box; }
+.scl-container { width: min(100% - 2 * var(--scl-space-4, 16px), var(--scl-content-width, 1200px)); margin-inline: auto; }
+.scl-prose { max-width: var(--scl-content-width-narrow, 720px); }
+.scl-site a { color: var(--scl-color-primary, #1d4ed8); }
+.scl-site :focus-visible { outline: 3px solid var(--scl-color-accent, #c2410c); outline-offset: 2px; }
+.scl-skip { position: absolute; left: -9999px; }
+.scl-skip:focus { left: var(--scl-space-4, 16px); top: var(--scl-space-2, 8px); background: var(--scl-color-background, #fff); padding: var(--scl-space-2, 8px); z-index: 10; }
+.scl-preview-banner { margin: 0; padding: var(--scl-space-2, 8px) var(--scl-space-4, 16px); background: #fef3c7; color: #78350f; font: 600 0.875rem/1.4 system-ui, sans-serif; text-align: center; }
+.scl-header { border-bottom: 1px solid var(--scl-color-border, #ddd); }
+.scl-header-inner { display: flex; flex-wrap: wrap; gap: var(--scl-space-4, 16px); align-items: center; justify-content: space-between; padding-block: var(--scl-space-4, 16px); }
+.scl-brandname { font-family: var(--scl-font-heading, inherit); font-weight: var(--scl-font-weight-bold, 700); text-decoration: none; color: var(--scl-color-text, #111) !important; }
+.scl-nav { display: flex; flex-wrap: wrap; gap: var(--scl-space-2, 8px) var(--scl-space-5, 24px); list-style: none; margin: 0; padding: 0; }
+.scl-nav a { color: var(--scl-color-text, #111); text-decoration: none; }
+.scl-nav a[aria-current="page"] { color: var(--scl-color-primary, #1d4ed8); text-decoration: underline; text-underline-offset: 4px; }
+.scl-section { padding-block: var(--scl-space-8, 48px); }
+.scl-page-title { padding-top: var(--scl-space-8, 48px); }
+.scl-h1, .scl-h2, .scl-h3 { font-family: var(--scl-font-heading, inherit); font-weight: var(--scl-font-weight-bold, 700); line-height: var(--scl-line-height-heading, 1.15); letter-spacing: var(--scl-letter-spacing-heading, 0); margin: 0 0 var(--scl-space-4, 16px); overflow-wrap: anywhere; }
+.scl-h1 { font-size: clamp(var(--scl-font-size-2xl, 1.75rem), 5vw, var(--scl-font-size-4xl, 3rem)); }
+.scl-h2 { font-size: clamp(var(--scl-font-size-xl, 1.5rem), 3.5vw, var(--scl-font-size-3xl, 2.25rem)); }
+.scl-h3 { font-size: var(--scl-font-size-lg, 1.25rem); }
+.scl-eyebrow { text-transform: uppercase; letter-spacing: var(--scl-letter-spacing-caps, 0.08em); font-size: var(--scl-font-size-sm, 0.875rem); color: var(--scl-color-accent, #c2410c); margin: 0 0 var(--scl-space-2, 8px); }
+.scl-lead { font-size: var(--scl-font-size-lg, 1.25rem); color: var(--scl-color-text-muted, #555); max-width: var(--scl-content-width-narrow, 720px); }
+.scl-split { display: grid; gap: var(--scl-space-6, 32px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: center; }
+.scl-media { display: block; width: 100%; height: auto; border-radius: var(--scl-radius-lg, 16px); }
+.scl-ctas { display: flex; flex-wrap: wrap; gap: var(--scl-space-3, 12px); margin-top: var(--scl-space-5, 24px); }
+.scl-button { display: inline-block; padding: var(--scl-space-3, 12px) var(--scl-space-5, 24px); border-radius: var(--scl-radius-sm, 4px); font-weight: var(--scl-font-weight-medium, 500); text-decoration: none; transition: transform var(--scl-duration-fast, 150ms) var(--scl-easing-standard, ease), box-shadow var(--scl-duration-fast, 150ms) var(--scl-easing-standard, ease); }
+.scl-button--primary { background: var(--scl-color-primary, #1d4ed8); color: var(--scl-color-on-primary, #fff) !important; box-shadow: var(--scl-shadow-sm, none); }
+.scl-button--secondary { border: 2px solid var(--scl-color-secondary, #475569); color: var(--scl-color-secondary, #475569) !important; }
+.scl-button:hover { transform: translateY(-1px); box-shadow: var(--scl-shadow-md, none); }
+.scl-grid, .scl-gallery { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--scl-grid-gutter, 24px); grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.scl-card { background: var(--scl-color-surface, #f8fafc); border-radius: var(--scl-radius-md, 8px); padding: var(--scl-space-5, 24px); box-shadow: var(--scl-shadow-sm, none); }
+.scl-band { background: var(--scl-color-surface, #f8fafc); border-radius: var(--scl-radius-lg, 16px); padding: var(--scl-space-8, 48px) var(--scl-space-5, 24px); text-align: center; }
+.scl-band .scl-ctas { justify-content: center; }
+.scl-faq-item { border-bottom: 1px solid var(--scl-color-border, #ddd); padding-block: var(--scl-space-3, 12px); }
+.scl-faq-item summary { cursor: pointer; font-weight: var(--scl-font-weight-medium, 500); }
+.scl-contact { list-style: none; padding: 0; }
+.scl-note { color: var(--scl-color-text-muted, #555); font-size: var(--scl-font-size-sm, 0.875rem); }
+.scl-footer { border-top: 1px solid var(--scl-color-border, #ddd); padding-block: var(--scl-space-6, 32px); color: var(--scl-color-text-muted, #555); font-size: var(--scl-font-size-sm, 0.875rem); }
+.scl-footer .scl-nav a { color: inherit; }
+@media (prefers-reduced-motion: reduce) {
+  .scl-button { transition: none; }
+  .scl-button:hover { transform: none; }
+}
+
+/* ---- WF-08 cinematic journeys: the same tokens as the conventional pages. */
+.scl-visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.scl-journey { margin-block: var(--scl-space-4, 16px) var(--scl-space-8, 48px); }
+.scl-journey-frame { display: grid; border-radius: var(--scl-radius-lg, 16px); overflow: hidden; background: var(--scl-color-text, #111); color: #fff; }
+.scl-journey-frame > * { grid-area: 1 / 1; }
+.scl-journey-stage { position: relative; aspect-ratio: var(--scl-journey-ratio, 16 / 9); width: 100%; max-height: 80vh; }
+.scl-journey-media, .scl-journey-curtain { position: absolute; inset: 0; }
+.scl-journey-media video, .scl-journey-card, .scl-journey-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scl-journey-card { background: linear-gradient(135deg, var(--scl-color-primary, #1d4ed8), var(--scl-color-secondary, #475569)); }
+.scl-journey-curtain { background: #000; opacity: 0; visibility: hidden; pointer-events: none; }
+/* Interface over the footage on wide screens, with a scrim so text stays legible. */
+.scl-journey-ui { align-self: end; display: grid; gap: var(--scl-space-3, 12px); padding: var(--scl-space-6, 32px) var(--scl-space-5, 24px) var(--scl-space-5, 24px); background: linear-gradient(to top, rgb(0 0 0 / 0.78), rgb(0 0 0 / 0.35) 70%, transparent); position: relative; z-index: 1; }
+.scl-journey-ui .scl-h2, .scl-journey-title { color: #fff; margin: 0; text-shadow: 0 1px 3px rgb(0 0 0 / 0.6); }
+.scl-journey-title:focus { outline: none; }
+.scl-journey-title:focus-visible { outline: 3px solid var(--scl-color-accent, #f59e0b); outline-offset: 4px; }
+.scl-journey-intro { display: grid; gap: var(--scl-space-3, 12px); }
+.scl-journey-choices { display: flex; flex-wrap: wrap; gap: var(--scl-space-3, 12px); }
+.scl-journey-ui .scl-button, .scl-journey-controls button, .scl-journey-controls a { min-height: 44px; min-width: 44px; font: inherit; cursor: pointer; }
+.scl-journey-ui button.scl-button { border: 0; }
+.scl-journey-ui .scl-button--secondary { border: 2px solid #fff; color: #fff !important; background: rgb(0 0 0 / 0.3); }
+.scl-journey-note { margin: 0; font-size: var(--scl-font-size-sm, 0.875rem); color: #f1f5f9; }
+.scl-journey-link { background: none; border: 0; padding: 0; color: #fff; text-decoration: underline; font: inherit; cursor: pointer; min-height: 0; }
+.scl-journey-alert { background: rgb(127 29 29 / 0.85); border-radius: var(--scl-radius-md, 8px); padding: var(--scl-space-3, 12px) var(--scl-space-4, 16px); display: grid; gap: var(--scl-space-2, 8px); justify-items: start; }
+.scl-journey-alert p { margin: 0; }
+.scl-journey-controls { display: flex; flex-wrap: wrap; gap: var(--scl-space-2, 8px); margin-top: var(--scl-space-3, 12px); align-items: center; }
+.scl-journey-controls button { background: var(--scl-color-surface, #f1f5f9); color: var(--scl-color-text, #111); border: 1px solid var(--scl-color-border, #cbd5e1); border-radius: var(--scl-radius-sm, 4px); padding: var(--scl-space-2, 8px) var(--scl-space-3, 12px); }
+.scl-journey-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+.scl-journey-controls a { display: inline-flex; align-items: center; padding-inline: var(--scl-space-3, 12px); }
+.scl-journey-path { display: flex; flex-wrap: wrap; gap: var(--scl-space-2, 8px); list-style: none; padding: 0; margin: var(--scl-space-3, 12px) 0 0; font-size: var(--scl-font-size-sm, 0.875rem); color: var(--scl-color-text-muted, #555); }
+.scl-journey-path li + li::before { content: "→ "; }
+.scl-journey-path [aria-current] { font-weight: var(--scl-font-weight-bold, 700); color: var(--scl-color-text, #111); }
+.scl-journey-issues { margin-bottom: var(--scl-space-4, 16px); font-size: var(--scl-font-size-sm, 0.875rem); }
+.scl-journey-launch .scl-media { max-height: 240px; width: 100%; object-fit: cover; border-radius: var(--scl-radius-md, 8px); margin-bottom: var(--scl-space-4, 16px); }
+/* Phones: interface below the footage, not over it, so nothing is covered. */
+@media (max-width: 640px) {
+  .scl-journey-ui { grid-area: 2 / 1; background: var(--scl-color-text, #111); padding: var(--scl-space-4, 16px); }
+  .scl-journey-frame { border-radius: var(--scl-radius-md, 8px); }
+  .scl-journey-choices .scl-button, .scl-journey-ui .scl-ctas .scl-button { flex: 1 1 100%; text-align: center; }
+}
+.scl-journey-ui .scl-ctas { margin-top: 0; }

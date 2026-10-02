@@ -1,0 +1,4 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 16px; line-height: 1.5; }
+img { max-width: 100%; }
+a { color: #0b3d5c; }

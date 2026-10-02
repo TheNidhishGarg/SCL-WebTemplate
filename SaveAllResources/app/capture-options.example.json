@@ -1,0 +1,31 @@
+{
+  "maxPages": 25,
+  "maxDepth": 3,
+  "maxDurationMs": 1200000,
+  "maxTotalBytes": 300000000,
+  "maxResourceBytes": 25000000,
+  "maxMediaBytes": 8000000,
+  "pageLoadTimeoutMs": 30000,
+  "networkIdleMs": 800,
+  "maxRetries": 1,
+  "maxScrollSteps": 40,
+  "scrollDelayMs": 250,
+  "maxScreenshotHeight": 8000,
+  "maxQueryParams": 3,
+  "maxQueryVariantsPerPath": 3,
+  "maxUrlsPerPattern": 25,
+  "maxSitemapUrls": 2000,
+  "useSitemaps": true,
+  "respectRobots": true,
+  "hashRoutes": true,
+  "screenshots": true,
+  "mobileScreenshots": true,
+  "includeApiResponses": false,
+  "beautifyFile": false,
+  "ignoreNoContentFile": false,
+  "allowedOrigins": ["https://www.example.com"],
+  "interactionRecipes": [
+    { "action": "click", "selector": ".menu-toggle", "urlPattern": "", "waitMs": 400 },
+    { "action": "hover", "selector": "nav .has-submenu", "waitMs": 300 }
+  ]
+}

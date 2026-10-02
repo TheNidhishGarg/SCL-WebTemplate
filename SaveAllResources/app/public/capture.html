@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Website capture job</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 46rem; padding: 0 1rem; color: #1d2433; background: #fff; }
+      pre { background: #f4f5f7; padding: 1rem; overflow: auto; font-size: 13px; }
+      .error { color: #b00020; }
+      button { font: inherit; padding: .4rem 1rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Website capture job</h1>
+    <p id="state">Starting…</p>
+    <p><button id="cancel" hidden>Cancel capture</button></p>
+    <pre id="detail"></pre>
+    <script type="module" src="/launcher.js"></script>
+  </body>
+</html>

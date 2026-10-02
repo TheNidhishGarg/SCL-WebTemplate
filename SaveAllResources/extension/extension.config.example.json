@@ -1,0 +1,4 @@
+{
+  "allowedAppOrigins": ["http://localhost:4100"],
+  "allowedUploadOrigins": ["http://localhost:4100"]
+}

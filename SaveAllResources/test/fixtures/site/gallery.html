@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gallery | Northwind Studio</title>
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="stylesheet" href="/css/theme.css?v=1">
+</head>
+<body class="page-gallery">
+  <div id="app">
+    <header class="site-header">
+      <nav class="nav">
+        <a class="logo" href="/"><img src="/img/logo.svg" alt="Northwind Studio logo" width="140" height="32"></a>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/about/">About</a></li>
+          <li><a href="/pricing.html">Pricing</a></li>
+          <li><a href="/gallery.html">Gallery</a></li>
+          <li><a href="/blog/">Blog</a></li>
+        </ul>
+        <button class="menu-toggle" type="button" aria-expanded="false">Menu</button>
+      </nav>
+    </header>
+    <main>
+      <section class="gallery-intro">
+        <h1>Recent work</h1>
+        <p>Scroll down — images load lazily.</p>
+      </section>
+      <div class="spacer" style="height: 2200px"></div>
+      <section class="gallery">
+        <img loading="lazy" src="/img/work-1.png" alt="Work one">
+        <img loading="lazy" src="/img/work-2.png" alt="Work two">
+        <img class="js-lazy" data-src="/img/work-3.png" alt="Work three">
+        <img class="js-lazy" data-src="/img/work-4.png" alt="Work four">
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="footer-cols">
+        <p>© 2026 Northwind Studio</p>
+        <p><a href="mailto:hello@northwind.test">hello@northwind.test</a> · <a href="tel:+15550100">+1 555 0100</a></p>
+        <ul class="social">
+          <li><a href="https://instagram.com/northwind.test">Instagram</a></li>
+          <li><a href="https://www.linkedin.com/company/northwind-test">LinkedIn</a></li>
+        </ul>
+        <p><a href="/calendar/2026/01">Events calendar</a> · <a href="/private/">Client area</a> · <a href="/logout">Log out</a></p>
+      </div>
+    </footer>
+  </div>
+  <script src="/js/menu.js"></script>
+  <script src="/js/lazy.js"></script>
+</body>
+</html>

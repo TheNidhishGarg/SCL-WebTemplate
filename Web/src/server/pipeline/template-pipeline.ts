@@ -254,6 +254,23 @@ export function createTemplatePipeline(deps: Deps) {
 
   // ------------------------------------------------------------- public API
 
+  const launch = async (projectId: string, x: { url: string; authority: TemplateJob["authority"]; authorizedBy: string; options: RunOptions; download?: { filename: string; bytes: Uint8Array } }): Promise<TemplateJob> => {
+    self.recover(); // never let a stale lock block a new run
+    const job = jobs.createLocked(projectId, { sourceUrl: x.url, authority: x.authority, authorizedBy: x.authorizedBy, options: x.options });
+    try {
+      const { pid } = await runner.start({ runId: job.id, url: x.url, options: x.options, ...(x.download && { download: x.download }) }, handlers(job.id));
+      jobs.update(job.id, { pid, started_at: now(), status: "running" });
+      setStage(job.id, "sar", { status: "running", detail: x.download ? "importing download" : "starting" });
+      store.logActivity(projectId, "template_started", x.download ? `Website template import started: ${x.download.filename} (${x.url})` : `Website template generation started: ${x.url}`);
+    } catch (e) {
+      const message = e instanceof RunnerError ? e.message : `SaveAllResources could not be started: ${(e as Error).message}`;
+      jobs.update(job.id, { run_lock: null });
+      fail(job.id, "sar", e instanceof RunnerError ? e.code : "spawn_failed", message);
+      if (e instanceof RunnerError && e.code === "busy") throw new StoreError("conflict", message);
+    }
+    return fresh(job.id);
+  };
+
   const self = {
     availability: () => runner.availability(),
 
@@ -275,20 +292,23 @@ export function createTemplatePipeline(deps: Deps) {
       const options = { maxPages: int(input.maxPages, deps.defaults.maxPages, 1, MAX_PAGES_LIMIT), maxDepth: int(input.maxDepth, deps.defaults.maxDepth, 0, 10), maxMinutes: deps.defaults.maxMinutes };
       const avail = runner.availability();
       if (!avail.ok) throw new StoreError("conflict", avail.reason);
-      self.recover(); // never let a stale lock block a new run
-      const job = jobs.createLocked(projectId, { sourceUrl: url, authority, authorizedBy, options });
-      try {
-        const { pid } = await runner.start({ runId: job.id, url, options }, handlers(job.id));
-        jobs.update(job.id, { pid, started_at: now(), status: "running" });
-        setStage(job.id, "sar", { status: "running", detail: "starting" });
-        store.logActivity(projectId, "template_started", `Website template generation started: ${url}`);
-      } catch (e) {
-        const message = e instanceof RunnerError ? e.message : `SaveAllResources could not be started: ${(e as Error).message}`;
-        jobs.update(job.id, { run_lock: null });
-        fail(job.id, "sar", e instanceof RunnerError ? e.code : "spawn_failed", message);
-        if (e instanceof RunnerError && e.code === "busy") throw new StoreError("conflict", message);
-      }
-      return fresh(job.id);
+      return launch(projectId, { url, authority, authorizedBy, options });
+    },
+
+    // A ZIP saved with the Chrome Web Store build of Save All Resources (no
+    // manifest): SaveAllResources templatises it (`--import`) instead of
+    // capturing, then the job continues exactly like a generated one.
+    async startFromDownload(projectId: string, input: { file: { filename: string; bytes: Uint8Array }; entryUrl: string; authority: unknown; authorizedBy?: unknown }): Promise<TemplateJob> {
+      const url = normaliseReferenceUrl(input.entryUrl);
+      if (!url) throw new StoreError("invalid", "Enter the http(s) address of the page the download was saved from.", [{ path: "entryUrl", message: "Enter a full http(s) URL" }]);
+      const authority = input.authority === "client_owned" ? "client_owned" : input.authority === "study_only" || input.authority === undefined || input.authority === "" ? "study_only" : null;
+      if (!authority) throw new StoreError("invalid", "Choose the source authority.", [{ path: "authority", message: "Choose one" }]);
+      const authorizedBy = typeof input.authorizedBy === "string" ? input.authorizedBy.trim().slice(0, 1000) : "";
+      if (authority === "client_owned" && !authorizedBy) throw new StoreError("invalid", "Say who authorised use of this client-owned site.", [{ path: "authorizedBy", message: "Required for client-owned" }]);
+      if (input.file.bytes.byteLength > MAX_CAPTURE_BYTES) throw new StoreError("invalid", `Captures are limited to ${MAX_CAPTURE_BYTES / 1024 / 1024} MB.`, [{ path: "file", message: "Too large" }]);
+      const avail = runner.importAvailability();
+      if (!avail.ok) throw new StoreError("conflict", `This is a Save All Resources download; turning it into a template needs SaveAllResources. ${avail.reason}`);
+      return launch(projectId, { url, authority, authorizedBy, options: deps.defaults, download: input.file });
     },
 
     get: (projectId: string, id: string) => jobs.get(projectId, id),

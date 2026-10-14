@@ -94,6 +94,21 @@ Errors carry a `code`: `EXTENSION_UNAVAILABLE`, `UNAUTHORIZED_ORIGIN`, `INVALID_
 * **Templatising** — section detection/classification (navigation, hero, cards, gallery, testimonials, pricing, form, FAQ, CTA, content, footer), field extraction (text, rich text, links, images/srcset, placeholders, repeated items as lists only when every item yields the identical template), shared components for identical markup across pages, variants for structurally identical navigation/footer that differ in markup, page-level overrides, brand config (name, logo, favicon, contact, social, shared images), colour/font/size tokens as CSS variables, editable content per page and section, integrations placeholders. Sections that cannot be converted keep their markup and are flagged `needs_manual_review`.
 * **Verification** — isolated preview origin and fresh browser context per page, no extensions/cookies, every non-local request blocked and recorded, local resource resolution, internal links, desktop/mobile screenshots compared with source screenshots under the same viewport parameters, console errors (blocked-dependency messages separated), form guard, disclosure widgets, configured recipes, and a configuration-change test (colour, brand name, a page field per page, a shared field) checking that changes appear exactly where expected.
 
+## Importing a download from the Web Store build
+
+```
+npm run capture -- --import www.example.com.zip [--entry-url https://www.example.com/] [--no-verify]
+```
+
+A ZIP saved with the regular Chrome Web Store build (DevTools → Save All Resources) has no manifest, only one
+folder per host. `--import` (`app/processing/import-plain.mjs`) packages it into the same `raw-capture/` and
+manifest a capture produces (`capture.importedFrom: "save-all-resources-download"`), then templatises, verifies and
+exports it as usual. No extension or capture browser is involved.
+* Entry host: `--entry-url`, else the host the ZIP file is named after, else the host folder with the most HTML files; https unless `--entry-url` says otherwise. A wrapper folder from re-zipping is skipped.
+* Every HTML file of the entry host becomes a page; its saved HTML is the template source (there is no rendered DOM).
+* The download keeps no URL list and drops query strings, so the resolver also matches references by SAR's path rule (`app/lib/sar-path.mjs`, ported from `resolveURLToPath`): `site.css?v=3` finds `site.css`, `/about` finds `about.html`.
+* No screenshots: verification loads every page but cannot compare it with the source.
+
 ## Install and run locally
 
 Requirements: Node.js ≥ 20, Google Chrome or Chromium; ~400 MB for Chrome for Testing.

@@ -5,6 +5,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { canonicalizeUrl, shortHash } from '../../extension/src/shared/url-scope.js';
 import { parseCss, transformCss, parseSrcset, serializeSrcset } from './css.mjs';
+import { sarPathCandidates } from '../lib/sar-path.mjs';
 
 export const TRACKER_SRC = [
   ['google-tag-manager', /googletagmanager\.com/i],
@@ -69,6 +70,19 @@ export function createResolver({ manifest, pages, entryUrl, options }) {
     }
   }
 
+  // Imported downloads (import-plain.mjs) rebuilt their URLs from SAR paths, without query strings
+  // or the response type: also match a reference by the path SAR would have written it to.
+  const bySarPath = manifest.capture?.importedFrom ? new Map() : null;
+  const pagesBySarPath = new Map();
+  if (bySarPath) {
+    for (const r of manifest.resources) if (r.sarPath && r.templatePath) bySarPath.set(r.sarPath, r.templatePath);
+    for (const p of pages) if (p.sarPath) pagesBySarPath.set(p.sarPath, p);
+  }
+  const bySar = (absUrl, map) => {
+    for (const c of sarPathCandidates(absUrl)) if (map.has(c)) return map.get(c);
+    return null;
+  };
+
   return {
     bodyOwner,
     assets,
@@ -78,7 +92,8 @@ export function createResolver({ manifest, pages, entryUrl, options }) {
       const v = pageId && variantsByPage.get(`${pageId} ${noHash}`);
       if (v) return v;
       const hit = assets.get(noHash) || assets.get(decodeSafe(noHash));
-      return hit ? hit.templatePath : null;
+      if (hit) return hit.templatePath;
+      return bySarPath ? bySar(noHash, bySarPath) : null;
     },
     /** Page record (following aliases) for an absolute URL, or null. */
     page(absUrl) {
@@ -90,6 +105,7 @@ export function createResolver({ manifest, pages, entryUrl, options }) {
         u.pathname = u.pathname.endsWith('/') ? u.pathname.slice(0, -1) || '/' : `${u.pathname}/`;
         p = pageUrls.get(u.toString());
       }
+      if (!p && bySarPath) p = bySar(c, pagesBySarPath);
       while (p && p.aliasOf) p = pages.find((x) => x.id === p.aliasOf);
       return p || null;
     },

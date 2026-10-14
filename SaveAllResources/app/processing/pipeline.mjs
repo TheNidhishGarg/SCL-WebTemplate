@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { packageCapture } from './package.mjs';
 import { exportPackage } from './export.mjs';
 
-export async function processJob({ jobDir, job, mode = 'full', verification = {}, onStage = () => {} }) {
+// `packager` turns the job's input into raw-capture/ + manifest: packageCapture for extension
+// captures, packagePlainDownload (import-plain.mjs) for imported Save All Resources downloads.
+export async function processJob({ jobDir, job, mode = 'full', verification = {}, onStage = () => {}, packager = packageCapture }) {
   const workDir = join(jobDir, 'work');
   rmSync(workDir, { recursive: true, force: true });
   const outDir = join(workDir, 'website-template');
@@ -29,7 +31,7 @@ export async function processJob({ jobDir, job, mode = 'full', verification = {}
   };
 
   onStage('packaging', { stages });
-  const packaged = await time('packaging', () => packageCapture({ jobDir, job, outDir }));
+  const packaged = await time('packaging', () => packager({ jobDir, job, outDir }));
   if (!packaged) {
     return { status: 'failed', errors, stages, exportFile: null };
   }

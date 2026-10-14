@@ -4,16 +4,21 @@
 //   npm run capture -- https://example.com [--max-pages 25] [--max-depth 3] [--options opts.json]
 //                      [--browser cft|system] [--headful] [--out exports] [--no-verify]
 //
+//   npm run capture -- --import download.zip [--entry-url https://example.com/] [--out exports] [--no-verify]
+//
+// --import          templatises a ZIP saved with the Chrome Web Store build of Save All Resources
+//                    (no capture: no browser or extension is needed, except for verification).
 // --browser cft     (default) launches Chrome for Testing with the automation build of Save All
 //                    Resources loaded from extension/dist; runs unattended.
 // --browser system  opens the launch page in your installed Chrome, which must have the
 //                    automation build installed (chrome://extensions → Load unpacked).
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createAppServer } from './server.mjs';
-import { TERMINAL } from './lib/job-store.mjs';
-import { ROOT } from './lib/config.mjs';
+import { JobStore, TERMINAL, newJobId } from './lib/job-store.mjs';
+import { ROOT, loadConfig } from './lib/config.mjs';
+import { normalizeOptions } from '../extension/src/shared/protocol.js';
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -27,6 +32,7 @@ function parseArgs(argv) {
 }
 
 const HELP = `Usage: npm run capture -- <url> [options]
+       npm run capture -- --import <download.zip> [--entry-url URL] [--out DIR] [--no-verify]
   --max-pages N        pages to capture (default 25)
   --max-depth N        link depth from the entry page (default 3)
   --max-minutes N      overall capture time limit (default 20)
@@ -34,7 +40,9 @@ const HELP = `Usage: npm run capture -- <url> [options]
   --browser cft|system cft: Chrome for Testing + extension, unattended (default); system: your Chrome
   --headful            show the Chrome for Testing window
   --out DIR            where to copy the export (default ./exports)
-  --no-verify          skip browser verification of the generated template`;
+  --no-verify          skip browser verification of the generated template
+  --import FILE        templatise a ZIP saved with the Chrome Web Store build of Save All Resources
+  --entry-url URL      with --import: the page the download was made from (default: guessed from the ZIP)`;
 
 function openInSystemBrowser(url) {
   const platform = process.platform;
@@ -43,8 +51,89 @@ function openInSystemBrowser(url) {
   return spawn('google-chrome', [url], { detached: true, stdio: 'ignore' });
 }
 
+// A Save All Resources download -> the same processing as a capture -> export ZIP.
+async function runImport(args) {
+  const { readPlainDownload, packagePlainDownload, ImportError } = await import('./processing/import-plain.mjs');
+  const { processJob } = await import('./processing/pipeline.mjs');
+  const file = resolve(args.import);
+  if (!existsSync(file)) {
+    console.error(`error: ${file} does not exist`);
+    process.exit(64);
+  }
+  const zipBuf = readFileSync(file);
+  const fileName = basename(file);
+  const entryUrl = args['entry-url'] || null;
+  let dl;
+  try {
+    dl = readPlainDownload(zipBuf, { zipName: fileName, entryUrl });
+  } catch (e) {
+    if (!(e instanceof ImportError) && !(e instanceof TypeError)) throw e;
+    console.error(`error: ${e instanceof TypeError ? 'the entry URL is not a valid URL' : e.message}`);
+    process.exit(65);
+  }
+  const config = loadConfig(args['no-verify'] ? { verification: { enabled: false } } : {});
+  const store = new JobStore(config.dataDir);
+  const jobId = newJobId();
+  const job = {
+    schema: 1,
+    jobId,
+    url: dl.entryUrl,
+    options: normalizeOptions({}),
+    template: {},
+    import: { fileName, entryUrl: dl.entryUrl },
+    status: 'packaging',
+    createdAt: Date.now(),
+    uploads: {},
+    capture: null,
+    processing: {},
+    errors: [],
+    warnings: [],
+    cancelRequested: false,
+  };
+  store.save(job);
+  const jobDir = store.dir(jobId);
+  mkdirSync(join(jobDir, 'import'), { recursive: true });
+  copyFileSync(file, join(jobDir, 'import', 'download.zip'));
+  console.log(`Job ${jobId}\n  import: ${fileName}\n  entry: ${dl.entryUrl} (${dl.pagePaths.length} page${dl.pagePaths.length === 1 ? '' : 's'}; hosts: ${dl.hosts.join(', ')})\n  data: ${jobDir}`);
+  process.on('SIGINT', () => {
+    store.update(jobId, (j) => (j.status = 'cancelled'));
+    process.exit(130);
+  });
+
+  const started = Date.now();
+  const result = await processJob({
+    jobDir,
+    job,
+    verification: config.verification,
+    packager: packagePlainDownload,
+    onStage: (stage) => {
+      store.update(jobId, (j) => (j.status = stage));
+      console.log(`[${Math.round((Date.now() - started) / 1000)}s] ${stage}`);
+    },
+  });
+  const final = store.update(jobId, (j) => {
+    j.status = result.status;
+    j.exportFile = result.exportFile;
+    j.summary = result.summary;
+    j.errors.push(...result.errors);
+  });
+  const s = final.summary;
+  if (s) console.log(`\nPages: ${s.pages.captured} imported, ${s.pages.templatised} templatised\nSections: ${s.sections.identified} identified, ${s.sections.templatised} templatised, ${s.sections.requiringManualWork} need manual work`);
+  for (const e of final.errors) console.log(`error: ${e}`);
+  if (final.exportFile && existsSync(final.exportFile)) {
+    const outDir = resolve(args.out || 'exports');
+    mkdirSync(outDir, { recursive: true });
+    const dest = join(outDir, `${jobId}-website-template.zip`);
+    copyFileSync(final.exportFile, dest);
+    console.log(`\nExport: ${dest}`);
+  }
+  console.log(`Status: ${final.status}`);
+  process.exit(final.status === 'failed' ? 1 : 0);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.import && !args.help) return runImport(args);
   const url = args._[0];
   if (args.help || !url) {
     console.log(HELP);

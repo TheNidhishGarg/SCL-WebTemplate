@@ -66,6 +66,51 @@ export type SarExport = {
 
 const invalid = (message: string) => new StoreError("invalid", message, [{ path: "file", message }]);
 
+// A plain download from the Chrome Web Store build of Save All Resources: no
+// manifest, just one folder per host ("<host>/<path>", SAR's resolveURLToPath)
+// and "_DataURI/". SaveAllResources' `--import` turns it into an export; this
+// only recognises one and guesses its site, so Web can hand it over.
+const HOST_DIR = /^(?:(?:[a-z0-9_](?:[a-z0-9_-]{0,62}[a-z0-9_])?\.)+[a-z0-9-]{2,63}\d{0,5}|localhost\d{0,5}|\d{1,3}(?:\.\d{1,3}){3}\d{0,5})$/i;
+const SPECIAL_DIR = /^(_DataURI|[a-z][a-z0-9+.-]*---.*)$/i;
+
+export type SarDownload = { host: string; entryUrl: string; htmlPages: number };
+
+export function detectSarDownload(bytes: Uint8Array, filename = ""): SarDownload | null {
+  let names: string[];
+  try {
+    const a = readArchive(bytes, undefined, () => false); // list and check every entry, inflate none
+    names = a.names.map((n) => `${a.rootPrefix}${n}`);
+  } catch {
+    return null;
+  }
+  if (names.some((n) => n === "manifest.json" || /^[^/]+\/manifest\.json$/.test(n))) return null;
+  const layout = (paths: string[]) => {
+    const html = new Map<string, number>();
+    let inTree = 0;
+    for (const p of paths) {
+      const top = p.split("/")[0];
+      if (!p.includes("/")) continue;
+      if (SPECIAL_DIR.test(top)) inTree++;
+      else if (HOST_DIR.test(top)) {
+        inTree++;
+        html.set(top, (html.get(top) ?? 0) + (/\.html?$/i.test(p) ? 1 : 0));
+      }
+    }
+    return [...html.values()].some((n) => n > 0) && inTree >= paths.length * 0.9 ? html : null;
+  };
+  // A download re-zipped after extracting it gains one wrapper folder.
+  const tops = new Set(names.map((n) => n.split("/")[0]));
+  const only = tops.size === 1 ? `${[...tops][0]}/` : null;
+  const hosts = (only && names.every((n) => n.startsWith(only)) && layout(names.map((n) => n.slice(only.length)))) || layout(names);
+  if (!hosts) return null;
+  // SAR names the file after the page's hostname; otherwise the host with the most pages.
+  const hinted = filename.replace(/^.*[\\/]/, "").replace(/\s*\(\d+\)(?=\.zip$)/i, "").replace(/\.zip$/i, "");
+  const ranked = [...hosts.entries()].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const [host, htmlPages] = ranked.find(([h]) => h === hinted || h.replace(/[^A-Za-z0-9.]/g, "_") === hinted) ?? ranked[0];
+  const entryUrl = normaliseReferenceUrl(`https://${host}/`);
+  return entryUrl ? { host, entryUrl, htmlPages } : null;
+}
+
 // Recognises a SaveAllResources export and reads its provenance. Throws
 // StoreError("invalid") for anything else, before anything is stored.
 export function readSaveAllResourcesExport(bytes: Uint8Array): SarExport {
@@ -78,7 +123,11 @@ export function readSaveAllResourcesExport(bytes: Uint8Array): SarExport {
     throw e;
   }
   const manifestFile = archive.files.find((f) => f.path === "manifest.json");
-  if (!manifestFile) throw invalid("Not a SaveAllResources export: there is no manifest.json at the top of the archive.");
+  if (!manifestFile) {
+    throw invalid(
+      "Not a SaveAllResources export: there is no manifest.json at the top of the archive. Nor is it a Save All Resources download, which has one folder per website (for example www.example.com/index.html) with at least one HTML page.",
+    );
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(new TextDecoder().decode(manifestFile.bytes));

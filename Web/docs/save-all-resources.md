@@ -35,7 +35,9 @@ Project page form (URL, authority, max pages/depth)
 ### Alternatives, on the References page
 
 - **Capture with the browser extension:** for pages only the user's own browser can open. The extension sends page packages straight to Web. It captures but **doesn't reconstruct a template**. It needs `SAR_EXTENSION_ID` and `SAR_UPLOAD_ORIGIN`; setup is in the last section.
-- **Manual fallback: import a SaveAllResources ZIP:** for a website-template.zip that already exists, for example one made on another machine or kept for debugging. It goes through the same importer and the same WF-02 limit.
+- **Import a Save All Resources ZIP:** accepts two kinds of ZIP, under the same WF-02 limit.
+  - A website-template.zip that already exists, for example one made on another machine or kept for debugging. It goes through the same importer.
+  - A download from the **Chrome Web Store build** of Save All Resources (DevTools → Save All Resources). It has no `manifest.json`, only one folder per host (`www.example.com/index.html`, `fonts.gstatic.com/…`). Web recognises it (`detectSarDownload`) and starts a template job from it: the runner calls `node $SAR_HOME/app/cli.mjs --import <zip> --entry-url <url> --out <run>/out`, and the job then continues exactly like a generated one (artifact, WF-02, WF-03, preview). The site is the host named by the ZIP file, or the host folder with the most HTML pages, over https; the form's optional *Page address* overrides it. Every HTML file of that host becomes a page. Because the download records no URLs, query strings, rendered DOM or screenshots, references are matched by Save All Resources' own path rule, and screenshot comparison is skipped. Importing needs `SAR_HOME` with dependencies installed, but not the extension build.
 
 ## Code
 

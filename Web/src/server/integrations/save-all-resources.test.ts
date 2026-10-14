@@ -8,7 +8,7 @@ import { ReferenceLibrary } from "@/domain/reference-library";
 import { ANALYST_FINDINGS_SCHEMA, TemplateManifest } from "@/domain/wf03";
 import { openDatabase } from "@/server/store/db";
 import { createStore, StoreError, type Store } from "@/server/store/store";
-import { importSaveAllResourcesExport, readSaveAllResourcesExport } from "./save-all-resources";
+import { detectSarDownload, importSaveAllResourcesExport, readSaveAllResourcesExport } from "./save-all-resources";
 
 // The SaveAllResources → WF-02 → WF-03 boundary. The fixture is laid out
 // exactly as sar-website-template's export.mjs writes it (one
@@ -242,5 +242,29 @@ describe("SaveAllResources → WF-02 → WF-03", () => {
     const manual = store.sources.registerUpload(q.id, { label: "Manual", originUrl: r.export.entryUrl, originRef: "", authorization: { basis: "study_only", note: "", license: "" } }, { filename: "real-export.zip", bytes: zip });
     expect(store.sources.runScan(q.id, manual.id).digest).toBe(scan.digest);
     console.log(JSON.stringify({ export: r.export, digest: scan.digest, files: res.summary, risks: res.risks.length, candidates: res.templateCandidates.length, questions: res.questions.length }, null, 2));
+  });
+});
+
+// A plain download from the Chrome Web Store build of Save All Resources: one
+// folder per host, no manifest. Web hands it to SaveAllResources' --import.
+describe("Save All Resources downloads", () => {
+  const dl = (files: Record<string, string>) => zipSync(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, strToU8(v)])));
+  const site = { "www.shop.example.co.in/index.html": "<h1>x</h1>", "www.shop.example.co.in/about.html": "<h1>y</h1>", "www.shop.example.co.in/css/a.css": "a{}", "fonts.gstatic.com/s/x.woff2": "w", "_DataURI/d.txt": "d" };
+
+  it("recognises a download and guesses its site", () => {
+    expect(detectSarDownload(dl(site), "www.shop.example.co.in.zip")).toEqual({ host: "www.shop.example.co.in", entryUrl: "https://www.shop.example.co.in/", htmlPages: 2 });
+    // Re-zipped after extracting: one wrapper folder. A single host folder is not mistaken for one.
+    const wrapped = dl(Object.fromEntries(Object.entries(site).map(([k, v]) => [`my-download/${k}`, v])));
+    expect(detectSarDownload(wrapped, "my-download.zip")?.host).toBe("www.shop.example.co.in");
+    expect(detectSarDownload(dl({ "example.jp/index.html": "<p>", "example.jp/img/a.png": "p" }), "x.zip")?.host).toBe("example.jp");
+    expect(detectSarDownload(dl({ "xn--mgbh0fb.xn--kgbechtv/index.html": "<p>" }), "")?.entryUrl).toBe("https://xn--mgbh0fb.xn--kgbechtv/");
+  });
+
+  it("does not mistake other archives for a download", () => {
+    expect(detectSarDownload(dl({ "site/index.html": "<p>", "site/css/a.css": "a{}" }), "site.zip")).toBeNull();
+    expect(detectSarDownload(dl({ "www.a.com/css/a.css": "a{}" }), "")).toBeNull(); // no page
+    expect(detectSarDownload(dl({ ...site, "manifest.json": "{}" }), "")).toBeNull();
+    expect(detectSarDownload(new TextEncoder().encode("not a zip"), "")).toBeNull();
+    expect(() => readSaveAllResourcesExport(dl(site))).toThrow(/no manifest.json/);
   });
 });

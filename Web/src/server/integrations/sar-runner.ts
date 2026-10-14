@@ -1,6 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { isAbsolute, join, resolve, sep } from "node:path";
 
@@ -14,7 +14,10 @@ import { isAbsolute, join, resolve, sep } from "node:path";
 // Production can swap it for a remote worker that implements TemplateRunner.
 
 export type RunOptions = { maxPages: number; maxDepth: number; maxMinutes: number };
-export type RunSpec = { runId: string; url: string; options: RunOptions };
+// `download`: a ZIP saved with the Chrome Web Store build of Save All Resources,
+// templatised with SaveAllResources' `--import` instead of capturing `url`
+// (which is then the page the download was made from).
+export type RunSpec = { runId: string; url: string; options: RunOptions; download?: { filename: string; bytes: Uint8Array } };
 
 // Stable stages, mapped from SaveAllResources' own job status. "finishing":
 // SaveAllResources says it is done; the process is copying the export out.
@@ -34,6 +37,8 @@ export type RunHandlers = {
 export interface TemplateRunner {
   readonly mode: string;
   availability(): { ok: true } | { ok: false; reason: string };
+  // Importing a download needs no browser extension, so it can be available when capturing is not.
+  importAvailability(): { ok: true } | { ok: false; reason: string };
   // Resolves once the process is running (with its pid); throws RunnerError if it cannot start.
   start(spec: RunSpec, handlers: RunHandlers): Promise<{ pid: number | null }>;
   // Asks a run to stop. The outcome arrives through onExit once the process has ended.
@@ -73,7 +78,7 @@ export function resolveSarHome(env: { SAR_HOME?: string; NODE_ENV: string }, cwd
 }
 
 // What a usable installation looks like. Reasons name the missing step, not paths.
-export function checkSarInstallation(home: string | null): { ok: true; home: string; cli: string } | { ok: false; reason: string } {
+export function checkSarInstallation(home: string | null, purpose: "capture" | "import" = "capture"): { ok: true; home: string; cli: string } | { ok: false; reason: string } {
   if (!home) return { ok: false, reason: "SaveAllResources is not configured: set SAR_HOME to its installation folder." };
   if (!isAbsolute(home) || !existsSync(home) || !statSync(home).isDirectory()) return { ok: false, reason: "SAR_HOME does not point to a folder." };
   const cli = join(home, "app", "cli.mjs");
@@ -85,7 +90,7 @@ export function checkSarInstallation(home: string | null): { ok: true; home: str
     return { ok: false, reason: "SAR_HOME has no readable package.json." };
   }
   if (!existsSync(join(home, "node_modules", "puppeteer", "package.json"))) return { ok: false, reason: "SaveAllResources dependencies are not installed: run `npm ci` in SAR_HOME." };
-  if (!existsSync(join(home, "extension", "dist", "extension-id.txt"))) return { ok: false, reason: "The SaveAllResources extension is not built: run `npm run build:extension` in SAR_HOME." };
+  if (purpose === "capture" && !existsSync(join(home, "extension", "dist", "extension-id.txt"))) return { ok: false, reason: "The SaveAllResources extension is not built: run `npm run build:extension` in SAR_HOME." };
   return { ok: true, home, cli };
 }
 
@@ -137,6 +142,7 @@ export function createLocalRunner(cfg: {
   portInUse?: () => Promise<boolean>;
 }): TemplateRunner {
   const install = checkSarInstallation(cfg.home);
+  const importInstall = checkSarInstallation(cfg.home, "import");
   const pollMs = cfg.pollMs ?? 1000;
   const killGraceMs = cfg.killGraceMs ?? 90_000;
   const timeoutOf = cfg.timeoutMs ?? ((o: RunOptions) => o.maxMinutes * 60_000 + (cfg.processingGraceMs ?? 20 * 60_000));
@@ -232,20 +238,32 @@ export function createLocalRunner(cfg: {
     mode: "local-process",
 
     availability: () => (install.ok ? { ok: true } : { ok: false, reason: install.reason }),
+    importAvailability: () => (importInstall.ok ? { ok: true } : { ok: false, reason: importInstall.reason }),
 
     async start(spec, handlers) {
-      if (!install.ok) throw new RunnerError("unavailable", install.reason);
+      const inst = spec.download ? importInstall : install;
+      if (!inst.ok) throw new RunnerError("unavailable", inst.reason);
       if (!/^https?:\/\//i.test(spec.url)) throw new RunnerError("invalid", "Only http(s) URLs can be captured.");
       if (active.size > 0) throw new RunnerError("busy", "SaveAllResources is busy with another generation.");
-      if (await portInUse()) throw new RunnerError("busy", "SaveAllResources is busy: its port 4100 is in use (another capture is running, perhaps started outside Web).");
+      // An import starts no SaveAllResources server, so it does not need port 4100.
+      if (!spec.download && (await portInUse())) throw new RunnerError("busy", "SaveAllResources is busy: its port 4100 is in use (another capture is running, perhaps started outside Web).");
       const d = runDir(spec.runId);
       mkdirSync(d.out, { recursive: true });
       mkdirSync(d.data, { recursive: true });
       const env: Record<string, string> = { SAR_DATA_DIR: d.data };
       for (const k of ENV_ALLOW) if (process.env[k]) env[k] = process.env[k]!;
       // Argument list, never a shell string; the URL is validated http(s), so it cannot read as an option.
-      const args = [install.cli, spec.url, "--max-pages", String(spec.options.maxPages), "--max-depth", String(spec.options.maxDepth), "--max-minutes", String(spec.options.maxMinutes), "--out", d.out];
-      const child = spawn(cfg.nodePath ?? process.execPath, args, { cwd: install.home, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true, shell: false });
+      let args: string[];
+      if (spec.download) {
+        // Kept under its own (sanitised) name: SaveAllResources reads the site's host from it too.
+        const input = join(d.dir, "input", spec.download.filename.replace(/[^A-Za-z0-9._() -]/g, "_").replace(/^[.-]+/, "").slice(0, 120) || "download.zip");
+        mkdirSync(join(d.dir, "input"), { recursive: true });
+        writeFileSync(input, spec.download.bytes);
+        args = [inst.cli, "--import", input, "--entry-url", spec.url, "--out", d.out];
+      } else {
+        args = [inst.cli, spec.url, "--max-pages", String(spec.options.maxPages), "--max-depth", String(spec.options.maxDepth), "--max-minutes", String(spec.options.maxMinutes), "--out", d.out];
+      }
+      const child = spawn(cfg.nodePath ?? process.execPath, args, { cwd: inst.home, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true, shell: false, windowsHide: true });
       const a: Active = { child, pid: child.pid ?? -1, cancelRequested: false, timedOut: false, timers: [], sarJobId: null, lastProgress: "", tail: [] };
       active.set(spec.runId, a);
       let logged = 0;
@@ -386,5 +404,5 @@ export function unavailableRunner(reason: string): TemplateRunner {
   const no = () => {
     throw new RunnerError("unavailable", reason);
   };
-  return { mode: "unavailable", availability: () => ({ ok: false, reason }), start: async () => no(), cancel: () => false, isRunning: () => false, reattach: () => false, discardWorkingData: () => {}, prune: () => 0 };
+  return { mode: "unavailable", availability: () => ({ ok: false, reason }), importAvailability: () => ({ ok: false, reason }), start: async () => no(), cancel: () => false, isRunning: () => false, reattach: () => false, discardWorkingData: () => {}, prune: () => 0 };
 }

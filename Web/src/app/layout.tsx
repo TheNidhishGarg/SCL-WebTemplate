@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      {/* Browser extensions (Grammarly, password managers) add attributes to <body> before hydration; ignore those, one level deep only. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
